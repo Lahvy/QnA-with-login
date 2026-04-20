@@ -14,6 +14,9 @@
 <!-- Firebase (compat) -->
 <script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-auth-compat.js"></script>
+  
+
 
   
   <style>
@@ -660,15 +663,23 @@
     <i data-lucide="copy"></i>
    Odkaz
   </button>
+  
+<button class="btn" id="authBtn" title="Přihlášení administrátora" type="button">
+  <i data-lucide="log-in"></i>
+  Přihlásit
+</button>
+
+<span id="authLabel" style="font-size:13px;color:var(--muted);font-weight:650;margin-left:6px;"></span>
 
   <!-- Settings anchor (tlačítko + dropdown menu) -->
-  <div class="menuAnchor">
+  <div class="menuAnchor" style="display:none">
     <button class="btn iconOnly" id="openSettingsBtn"
             aria-label="Nastavení" title="Nastavení"
             aria-haspopup="menu" aria-expanded="false">
       <i data-lucide="settings"></i>
     </button>
 
+    
    <div class="menu" id="settingsMenu" role="menu" aria-hidden="true">
 
   <button class="menuItem" id="changeSessionBtn" type="button" role="menuitem">
@@ -934,7 +945,9 @@ const state = {
 function participantUrl(){
   const u = new URL(window.location.href);
   u.searchParams.delete("ask");
-  u.searchParams.delete("admin"); // ✅ aby QR/odkaz nikdy nenesl admin režim
+  u.searchParams.delete("admin");
+  u.searchParams.delete("Admin");
+  // ✅ aby QR/odkaz nikdy nenesl admin režim
   if (state.sessionId) u.searchParams.set("s", state.sessionId);
   return u.toString();
 }
@@ -1099,10 +1112,57 @@ async function likeQuestion(id){
  * Settings menu (dropdown)
  **********************/
 
+// ADMIN new rules    
+const auth = firebase.auth();
+
+state.user = null;
+state.isAdmin = false;
+
+function setAdminUi(){
+  const settingsAnchor = document.querySelector(".menuAnchor");
+  const authBtn = document.querySelector("#authBtn");
+  const authLabel = document.querySelector("#authLabel");
+
+  // ⚙️ jen admin
+  if (settingsAnchor) settingsAnchor.style.display = state.isAdmin ? "" : "none";
+
+  // tlačítko login/logout
+  if (authBtn){
+    authBtn.innerHTML = state.user
+      ? `<i data-lucide="log-out"></i> Odhlásit`
+      : `<i data-lucide="log-in"></i> Přihlásit`;
+  }
+
+  if (authLabel){
+    authLabel.textContent = state.user
+      ? (state.isAdmin ? `Admin: ${state.user.email}` : `Přihlášen: ${state.user.email}`)
+      : "";
+  }
+
+  lucide.createIcons();
+}
+
+async function checkAdmin(user){
+  if (!user) return false;
+  try {
+    const doc = await db.collection("admins").doc(user.uid).get();
+    return doc.exists;
+  } catch(e){
+    console.error("admin check failed", e);
+    return false;
+  }
+}
+
+auth.onAuthStateChanged(async (user) => {
+  state.user = user || null;
+  state.isAdmin = await checkAdmin(user);
+  setAdminUi();
+});
+
 // Admin-only: schovej ⚙️ pokud není ?admin=1
-const isAdmin = new URL(location.href).searchParams.get("admin") === "1";
-const settingsAnchor = document.querySelector(".menuAnchor");
-if (settingsAnchor) settingsAnchor.style.display = isAdmin ? "" : "none";
+//const isAdmin = new URL(location.href).searchParams.get("admin") === "1";
+//const settingsAnchor = document.querySelector(".menuAnchor");
+//if (settingsAnchor) settingsAnchor.style.display = isAdmin ? "" : "none";
   
 const openSettingsBtn = $("#openSettingsBtn");
 const settingsMenu    = $("#settingsMenu");
@@ -1200,6 +1260,31 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && settingsMenu?.classList.contains("open")) {
     closeMenu();
   }
+});
+
+async function loginFlow(){
+  const email = window.prompt("Email:");
+  if (!email) return;
+  const password = window.prompt("Heslo:");
+  if (!password) return;
+
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    toast("Přihlášení OK ✅");
+  } catch (e){
+    console.error(e);
+    toast("Přihlášení se nepovedlo ❌");
+  }
+}
+
+async function logoutFlow(){
+  await auth.signOut();
+  toast("Odhlášeno ✅");
+}
+
+document.querySelector("#authBtn")?.addEventListener("click", async () => {
+  if (state.user) return logoutFlow();
+  return loginFlow();
 });
 
 /**********************

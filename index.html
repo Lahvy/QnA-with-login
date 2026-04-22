@@ -1477,25 +1477,6 @@ document.addEventListener("keydown", (e) => {
 });
 
 
-  } catch (e) {
-    console.error(e);
-
-    const code = e?.code || "";
-    if (code === "auth/email-already-in-use") {
-      toast("Email už existuje – zkus se přihlásit ❌");
-    } else if (code === "auth/weak-password") {
-      toast("Heslo je moc slabé (min. 6 znaků) ❌");
-    } else if (code === "auth/invalid-email") {
-      toast("Email není ve správném formátu ❌");
-    } else if (code === "auth/wrong-password") {
-      toast("Špatné heslo ❌");
-    } else if (code === "auth/user-not-found") {
-      toast("Uživatel neexistuje – vytvoř účet (OK) ❌");
-    } else {
-      toast("Nepovedlo se (zkontroluj email/heslo) ❌");
-    }
-  }
-}
 
 
 async function logoutFlow(){

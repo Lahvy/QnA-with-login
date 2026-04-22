@@ -1476,25 +1476,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-//async function loginFlow(){
- // const isSignup = window.confirm(
-//    "Chceš vytvořit nový účet?\n\nOK = vytvořit účet\nStorno = jen přihlásit"
-//  );
 
-  const email = window.prompt("Email:");
-  if (!email) return;
-
-  const password = window.prompt("Heslo (min. 6 znaků):");
-  if (!password) return;
-
-  try {
-    if (isSignup) {
-      await auth.createUserWithEmailAndPassword(email, password);
-      toast("Účet vytvořen a přihlášen ✅");
-    } else {
-      await auth.signInWithEmailAndPassword(email, password);
-      toast("Přihlášení OK ✅");
-    }
   } catch (e) {
     console.error(e);
 

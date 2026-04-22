@@ -802,6 +802,66 @@
   </div>
 
   <!-- Toast -->
+<!-- Auth Modal -->
+<div class="backdrop" id="authBackdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="modalHeader">
+      <h3 id="authModalTitle">Přihlášení</h3>
+      <button class="iconBtn" id="authCloseBtn" aria-label="Zavřít">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="modalBody">
+      <div class="seg" aria-label="Režim přihlášení" id="authTabs">
+        <button id="authTabLogin" class="active" type="button">
+          <i data-lucide="log-in"></i>
+          Přihlásit
+        </button>
+        <button id="authTabSignup" type="button">
+          <i data-lucide="user-plus"></i>
+          Vytvořit účet
+        </button>
+      </div>
+
+      <div class="error" id="authError">
+        <i data-lucide="alert-triangle"></i>
+        <span id="authErrorText">Chyba</span>
+      </div>
+
+      <div class="field">
+        <div class="label">Email</div>
+        <input id="authEmail" class="input" type="email" autocomplete="email" placeholder="např. dominik@email.cz" />
+      </div>
+
+      <div class="field">
+        <div class="label">Heslo</div>
+        <input id="authPassword" class="input" type="password" autocomplete="current-password" placeholder="min. 6 znaků" />
+        <div class="mutedSmall">Heslo musí mít alespoň 6 znaků.</div>
+      </div>
+
+      <div style="display:grid; gap:10px;">
+        <button class="btn primary" id="authPrimaryBtn" type="button">
+          <i data-lucide="log-in"></i>
+          Přihlásit
+        </button>
+
+        <button class="btn" id="authGoogleBtn" type="button" title="Přihlásit / vytvořit účet přes Google">
+          <i data-lucide="chrome"></i>
+          Pokračovat s Google
+        </button>
+
+        <button class="btn" id="authForgotBtn" type="button" style="justify-content:center;">
+          Zapomenuté heslo
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+  
   <div class="toast" id="toast" role="status" aria-live="polite">
     <i data-lucide="check-circle-2"></i>
     <span id="toastText">Hotovo</span>
@@ -1159,6 +1219,160 @@ auth.onAuthStateChanged(async (user) => {
   setAdminUi();
 });
 
+/**********************
+ * Auth modal (UI)
+ **********************/
+const authBackdrop   = document.querySelector("#authBackdrop");
+const authCloseBtn   = document.querySelector("#authCloseBtn");
+const authTabLogin   = document.querySelector("#authTabLogin");
+const authTabSignup  = document.querySelector("#authTabSignup");
+const authPrimaryBtn = document.querySelector("#authPrimaryBtn");
+const authGoogleBtn  = document.querySelector("#authGoogleBtn");
+const authForgotBtn  = document.querySelector("#authForgotBtn");
+const authEmail      = document.querySelector("#authEmail");
+const authPassword   = document.querySelector("#authPassword");
+const authError      = document.querySelector("#authError");
+const authErrorText  = document.querySelector("#authErrorText");
+const authModalTitle = document.querySelector("#authModalTitle");
+
+let authMode = "login"; // "login" | "signup"
+
+function authShowError(msg){
+  if (!authError || !authErrorText) return;
+  authErrorText.textContent = msg;
+  authError.classList.add("show");
+  lucide.createIcons();
+}
+
+function authClearError(){
+  authError?.classList.remove("show");
+}
+
+function openAuthModal(mode = "login"){
+  authMode = mode;
+  authClearError();
+
+  // UI state
+  if (authTabLogin && authTabSignup){
+    authTabLogin.classList.toggle("active", authMode === "login");
+    authTabSignup.classList.toggle("active", authMode === "signup");
+  }
+
+  if (authModalTitle){
+    authModalTitle.textContent = authMode === "signup" ? "Vytvořit účet" : "Přihlášení";
+  }
+
+  if (authPrimaryBtn){
+    authPrimaryBtn.innerHTML = authMode === "signup"
+      ? `<i data-lucide="user-plus"></i> Vytvořit účet`
+      : `<i data-lucide="log-in"></i> Přihlásit`;
+  }
+
+  // password autocomplete hint (login vs signup)
+  if (authPassword){
+    authPassword.setAttribute("autocomplete", authMode === "signup" ? "new-password" : "current-password");
+  }
+
+  // show modal
+  if (authBackdrop){
+    authBackdrop.classList.add("open");
+    authBackdrop.setAttribute("aria-hidden", "false");
+  }
+
+  lucide.createIcons();
+  setTimeout(() => authEmail?.focus(), 50);
+}
+
+function closeAuthModal(){
+  if (!authBackdrop) return;
+  authBackdrop.classList.remove("open");
+  authBackdrop.setAttribute("aria-hidden", "true");
+  authClearError();
+  if (authPassword) authPassword.value = "";
+}
+
+// Tabs
+authTabLogin?.addEventListener("click", () => openAuthModal("login"));
+authTabSignup?.addEventListener("click", () => openAuthModal("signup"));
+
+// Close actions
+authCloseBtn?.addEventListener("click", closeAuthModal);
+authBackdrop?.addEventListener("click", (e) => {
+  if (e.target === authBackdrop) closeAuthModal();
+});
+
+// ESC closes auth modal
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && authBackdrop?.classList.contains("open")) closeAuthModal();
+});
+
+// Primary action (email + password)
+authPrimaryBtn?.addEventListener("click", async () => {
+  authClearError();
+  const email = (authEmail?.value || "").trim();
+  const password = (authPassword?.value || "").trim();
+
+  if (!email) return authShowError("Vyplň prosím email.");
+  if (!password) return authShowError("Vyplň prosím heslo.");
+  if (authMode === "signup" && password.length < 6) return authShowError("Heslo musí mít alespoň 6 znaků.");
+
+  try {
+    if (authMode === "signup") {
+      await auth.createUserWithEmailAndPassword(email, password); // signup 
+      toast("Účet vytvořen ✅");
+    } else {
+      await auth.signInWithEmailAndPassword(email, password); // login 
+      toast("Přihlášení OK ✅");
+    }
+    closeAuthModal();
+  } catch (e) {
+    console.error(e);
+    const code = e?.code || "";
+    if (code === "auth/email-already-in-use") authShowError("Email už existuje – zkus se přihlásit.");
+    else if (code === "auth/weak-password") authShowError("Heslo je moc slabé (min. 6 znaků).");
+    else if (code === "auth/invalid-email") authShowError("Email není ve správném formátu.");
+    else if (code === "auth/wrong-password") authShowError("Špatné heslo.");
+    else if (code === "auth/user-not-found") authShowError("Uživatel neexistuje – vytvoř účet.");
+    else authShowError("Nepodařilo se. Zkontroluj údaje nebo to zkus znovu.");
+  }
+});
+
+// Google sign-in (popup)
+authGoogleBtn?.addEventListener("click", async () => {
+  authClearError();
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider(); // google provider [1](https://firebase.google.com/docs/auth/web/google-signin)
+    provider.setCustomParameters({ prompt: "select_account" }); // optional
+
+    await auth.signInWithPopup(provider); // popup sign-in [1](https://firebase.google.com/docs/auth/web/google-signin)[3](https://www.tutorialspoint.com/firebase/firebase_google_authentication.htm)
+    toast("Přihlášení přes Google OK ✅");
+    closeAuthModal();
+  } catch (e) {
+    console.error(e);
+    const code = e?.code || "";
+    if (code === "auth/popup-closed-by-user") authShowError("Okno bylo zavřeno před dokončením.");
+    else if (code === "auth/cancelled-popup-request") authShowError("Probíhá jiné přihlášení – zkus to znovu.");
+    else if (code === "auth/popup-blocked") authShowError("Prohlížeč zablokoval popup – povol vyskakovací okna.");
+    else if (code === "auth/unauthorized-domain") authShowError("Doména není povolená v Firebase Auth (Authorized domains).");
+    else authShowError("Google přihlášení se nepovedlo.");
+  }
+});
+
+// Forgot password (email reset)
+authForgotBtn?.addEventListener("click", async () => {
+  authClearError();
+  const email = (authEmail?.value || "").trim();
+  if (!email) return authShowError("Nejdřív vyplň email, na který pošleme reset hesla.");
+
+  try {
+    await auth.sendPasswordResetEmail(email); // password reset 
+    toast("Reset hesla odeslán ✅");
+  } catch (e) {
+    console.error(e);
+    authShowError("Nepovedlo se odeslat reset hesla.");
+  }
+});
+    
 // Admin-only: schovej ⚙️ pokud není ?admin=1
 //const isAdmin = new URL(location.href).searchParams.get("admin") === "1";
 //const settingsAnchor = document.querySelector(".menuAnchor");
@@ -1262,10 +1476,10 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-async function loginFlow(){
-  const isSignup = window.confirm(
-    "Chceš vytvořit nový účet?\n\nOK = vytvořit účet\nStorno = jen přihlásit"
-  );
+//async function loginFlow(){
+ // const isSignup = window.confirm(
+//    "Chceš vytvořit nový účet?\n\nOK = vytvořit účet\nStorno = jen přihlásit"
+//  );
 
   const email = window.prompt("Email:");
   if (!email) return;
@@ -1309,7 +1523,7 @@ async function logoutFlow(){
 
 document.querySelector("#authBtn")?.addEventListener("click", async () => {
   if (state.user) return logoutFlow();
-  return loginFlow();
+  openAuthModal("login");
 });
 
 /**********************
@@ -1613,7 +1827,7 @@ try {
   console.warn("Nelze vytvořit session (pravděpodobně rules).", e);
   toast("Neexistuje žádná session. Přihlas se jako admin a vytvoř ji v ⚙️.");
 }
-
+}
 /**********************
  * Particles background (vanilla JS)
  * Inspired by React particles.tsx

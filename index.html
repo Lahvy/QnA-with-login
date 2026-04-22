@@ -1606,10 +1606,13 @@ async function ensureSession(){
     return;
   }
 
+try {
   const created = await createSession("Session 1");
   await setActiveSession(created.id);
+} catch (e) {
+  console.warn("Nelze vytvořit session (pravděpodobně rules).", e);
+  toast("Neexistuje žádná session. Přihlas se jako admin a vytvoř ji v ⚙️.");
 }
-
 
 /**********************
  * Particles background (vanilla JS)

@@ -1263,19 +1263,44 @@ document.addEventListener("keydown", (e) => {
 });
 
 async function loginFlow(){
+  const isSignup = window.confirm(
+    "Chceš vytvořit nový účet?\n\nOK = vytvořit účet\nStorno = jen přihlásit"
+  );
+
   const email = window.prompt("Email:");
   if (!email) return;
-  const password = window.prompt("Heslo:");
+
+  const password = window.prompt("Heslo (min. 6 znaků):");
   if (!password) return;
 
   try {
-    await auth.signInWithEmailAndPassword(email, password);
-    toast("Přihlášení OK ✅");
-  } catch (e){
+    if (isSignup) {
+      await auth.createUserWithEmailAndPassword(email, password);
+      toast("Účet vytvořen a přihlášen ✅");
+    } else {
+      await auth.signInWithEmailAndPassword(email, password);
+      toast("Přihlášení OK ✅");
+    }
+  } catch (e) {
     console.error(e);
-    toast("Přihlášení se nepovedlo ❌");
+
+    const code = e?.code || "";
+    if (code === "auth/email-already-in-use") {
+      toast("Email už existuje – zkus se přihlásit ❌");
+    } else if (code === "auth/weak-password") {
+      toast("Heslo je moc slabé (min. 6 znaků) ❌");
+    } else if (code === "auth/invalid-email") {
+      toast("Email není ve správném formátu ❌");
+    } else if (code === "auth/wrong-password") {
+      toast("Špatné heslo ❌");
+    } else if (code === "auth/user-not-found") {
+      toast("Uživatel neexistuje – vytvoř účet (OK) ❌");
+    } else {
+      toast("Nepovedlo se (zkontroluj email/heslo) ❌");
+    }
   }
 }
+
 
 async function logoutFlow(){
   await auth.signOut();

@@ -696,6 +696,13 @@
     <i data-lucide="rotate-ccw"></i>
     Reset session (current)
   </button>
+
+     <button class="menuItem" id="approveUsersBtn" type="button">
+  <i data-lucide="users"></i>
+  Schválit uživatele
+  <span id="pendingCount" style="margin-left:auto; opacity:.6"></span>
+</button>
+     
 </div>
   </div>
 </div>
@@ -803,6 +810,23 @@
 
   <!-- Toast -->
 <!-- Auth Modal -->
+
+<div class="backdrop" id="approveBackdrop" aria-hidden="true">
+  <div class="modal">
+    <div class="modalHeader">
+      <h3>Schválit uživatele</h3>
+      <button class="iconBtn" id="approveCloseBtn">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="modalBody" id="approveList">
+      <!-- users render -->
+    </div>
+  </div>
+</div>
+
+  
 <div class="backdrop" id="authBackdrop" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
     <div class="modalHeader">
@@ -1182,7 +1206,99 @@ async function likeQuestion(id){
 /**********************
  * Settings menu (dropdown)
  **********************/
+/**********************
+ * Admin approval UI
+ **********************/
+const approveUsersBtn  = document.querySelector("#approveUsersBtn");
+const approveBackdrop  = document.querySelector("#approveBackdrop");
+const approveCloseBtn  = document.querySelector("#approveCloseBtn");
+const approveList      = document.querySelector("#approveList");
+const pendingCountEl   = document.querySelector("#pendingCount");
 
+function openApproveModal(){
+  if (!approveBackdrop) return;
+  approveBackdrop.classList.add("open");
+  approveBackdrop.setAttribute("aria-hidden", "false");
+  loadPendingUsers();
+}
+
+function closeApproveModal(){
+  if (!approveBackdrop) return;
+  approveBackdrop.classList.remove("open");
+  approveBackdrop.setAttribute("aria-hidden", "true");
+}
+
+// otevření z ⚙️
+approveUsersBtn?.addEventListener("click", () => {
+  closeMenu();
+  openApproveModal();
+});
+
+// zavření
+approveCloseBtn?.addEventListener("click", closeApproveModal);
+approveBackdrop?.addEventListener("click", (e) => {
+  if (e.target === approveBackdrop) closeApproveModal();
+});
+
+// načtení pending userů
+async function loadPendingUsers(){
+  if (!state.isAdmin) return;
+
+  try {
+    const snap = await db.collection("users")
+      .where("role", "==", "pending")
+      .get();
+
+    pendingCountEl.textContent = snap.size ? `(${snap.size})` : "";
+
+    if (snap.empty){
+      approveList.innerHTML =
+        `<div class="mutedSmall">Žádní uživatelé ke schválení ✅</div>`;
+      return;
+    }
+
+    approveList.innerHTML = snap.docs.map(doc => {
+      const u = doc.data();
+      return `
+        <div class="card" style="padding:12px; display:flex; align-items:center; gap:12px;">
+          <div style="flex:1">
+            <strong>${u.name || "—"}</strong><br/>
+            <span class="mutedSmall">${u.email}</span>
+          </div>
+          <button class="btn primary" data-approve="${doc.id}">
+            Schválit
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    approveList.querySelectorAll("[data-approve]").forEach(btn => {
+      btn.addEventListener("click", () => approveUser(btn.dataset.approve));
+    });
+
+    lucide.createIcons();
+
+  } catch (e){
+    console.error("loadPendingUsers failed", e);
+    approveList.innerHTML =
+      `<div class="mutedSmall">Chyba při načítání ❌</div>`;
+  }
+}
+
+// schválení usera
+async function approveUser(uid){
+  try {
+    await db.collection("users").doc(uid).update({
+      role: "admin"
+    });
+    toast("Uživatel schválen ✅");
+    loadPendingUsers();
+  } catch (e){
+    console.error("approveUser failed", e);
+    toast("Schválení se nepovedlo ❌");
+  }
+}
+    
 // ADMIN new rules    
 const auth = firebase.auth();
 
@@ -1252,6 +1368,10 @@ auth.onAuthStateChanged(async (user) => {
   }
 
   setAdminUi();
+
+  if (state.isAdmin) {
+  loadPendingUsers();
+}
 });
 
 /**********************

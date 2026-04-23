@@ -671,21 +671,6 @@
 
 <span id="authLabel" style="font-size:13px;color:var(--muted);font-weight:650;margin-left:6px;"></span>
 
-  <div id="verifyBanner" style="display:none; margin-left:6px; align-items:center; gap:8px; flex-wrap:wrap;">
-  <span class="pill" style="border-color: rgba(182,0,0,0.25);">
-    <i data-lucide="mail-warning"></i>
-    Email není ověřen
-  </span>
-  <button class="btn" id="resendVerifyBtn" type="button" style="height:38px;">
-    <i data-lucide="send"></i>
-    Poslat znovu
-  </button>
-  <button class="btn" id="refreshVerifyBtn" type="button" style="height:38px;">
-    <i data-lucide="refresh-cw"></i>
-    Zkontrolovat
-  </button>
-</div>
-
   <!-- Settings anchor (tlačítko + dropdown menu) -->
   <div class="menuAnchor" style="display:none">
     <button class="btn iconOnly" id="openSettingsBtn"
@@ -787,6 +772,20 @@
           <i data-lucide="alert-triangle"></i>
           <span id="errorText">Vyplň prosím dotaz.</span>
         </div>
+
+        <div class="row2">
+          <div class="field">
+            <div class="label">Dotaz</div>
+            <textarea id="questionInput" maxlength="280" placeholder="Napiš svůj dotaz (max 280 znaků)…"></textarea>
+            <div class="mutedSmall" id="charCount">0 / 280</div>
+          </div>
+
+          <div class="field">
+            <div class="label">Jméno (volitelné)</div>
+            <input id="nameInput" class="input" maxlength="60" placeholder="anonymně" />
+            <div class="mutedSmall">Když necháš prázdné, zobrazí se „anonymně“.</div>
+          </div>
+        </div>
       </div>
 
       <div class="modalFooter">
@@ -830,11 +829,6 @@
         <span id="authErrorText">Chyba</span>
       </div>
 
-    <div class="field" id="signupNameField" style="display:none;">
-  <div class="label">Jméno</div>
-  <input id="authName" class="input" maxlength="60" placeholder="např. Láďa Šilha" />
-</div>
-      
       <div class="field">
         <div class="label">Email</div>
         <input id="authEmail" class="input" type="email" autocomplete="email" placeholder="např. dominik@email.cz" />
@@ -1181,47 +1175,6 @@ async function likeQuestion(id){
 // ADMIN new rules    
 const auth = firebase.auth();
 
-const verifyBanner = document.querySelector("#verifyBanner");
-const resendVerifyBtn = document.querySelector("#resendVerifyBtn");
-const refreshVerifyBtn = document.querySelector("#refreshVerifyBtn");
-
-async function refreshUserVerification(){
-  if (!auth.currentUser) return false;
-  await auth.currentUser.reload(); // načte čerstvý stav emailVerified
-  state.user = auth.currentUser;
-  return !!state.user?.emailVerified;
-}
-
-function setVerifyBannerUi(){
-  const user = state.user;
-  const show = !!user && user.providerData?.some(p => p.providerId === "password") && !user.emailVerified;
-  if (verifyBanner) verifyBanner.style.display = show ? "inline-flex" : "none";
-}
-
-resendVerifyBtn?.addEventListener("click", async () => {
-  try {
-    if (!auth.currentUser) return;
-    await auth.currentUser.sendEmailVerification(); // znovu pošle email [3](https://bing.com/search?q=Firebase+Auth+email+verification+templates+console)[6](https://stackoverflow.com/questions/51334804/change-the-email-template-when-using-firebase-email-link-authentication)
-    toast("Ověřovací email odeslán ✅");
-  } catch (e) {
-    console.error(e);
-    toast(`Nepodařilo se poslat ověřovací email (${e?.code || "unknown"}) ❌`);
-  }
-});
-
-refreshVerifyBtn?.addEventListener("click", async () => {
-  try {
-    const verified = await refreshUserVerification();
-    if (verified) toast("Email ověřen ✅");
-    else toast("Email stále není ověřen ❌");
-    setVerifyBannerUi();
-    setAdminUi(); // přepočítá viditelnost ⚙️
-  } catch (e) {
-    console.error(e);
-    toast("Nepodařilo se zkontrolovat ověření ❌");
-  }
-});
-
 state.user = null;
 state.isAdmin = false;
 
@@ -1229,11 +1182,9 @@ function setAdminUi(){
   const settingsAnchor = document.querySelector(".menuAnchor");
   const authBtn = document.querySelector("#authBtn");
   const authLabel = document.querySelector("#authLabel");
-  setVerifyBannerUi();
 
   // ⚙️ jen admin
- const verified = !!state.user?.emailVerified;
-if (settingsAnchor) settingsAnchor.style.display = (state.isAdmin && verified) ? "" : "none";
+  if (settingsAnchor) settingsAnchor.style.display = state.isAdmin ? "" : "none";
 
   // tlačítko login/logout
   if (authBtn){
@@ -1264,13 +1215,7 @@ async function checkAdmin(user){
 
 auth.onAuthStateChanged(async (user) => {
   state.user = user || null;
-
-  // načti čerstvé emailVerified (hlavně po kliknutí na ověřovací link)
-  if (state.user) {
-    try { await refreshUserVerification(); } catch {}
-  }
-
-  state.isAdmin = await checkAdmin(state.user);
+  state.isAdmin = await checkAdmin(user);
   setAdminUi();
 });
 
@@ -1289,7 +1234,6 @@ const authPassword   = document.querySelector("#authPassword");
 const authError      = document.querySelector("#authError");
 const authErrorText  = document.querySelector("#authErrorText");
 const authModalTitle = document.querySelector("#authModalTitle");
-const signupNameField = document.querySelector("#signupNameField");
 
 let authMode = "login"; // "login" | "signup"
 
@@ -1308,11 +1252,6 @@ function openAuthModal(mode = "login"){
   authMode = mode;
   authClearError();
 
-  // ✅ ZOBRAZENÍ JMÉNA JEN PŘI SIGNUP
-  if (signupNameField) {
-    signupNameField.style.display = authMode === "signup" ? "" : "none";
-  }
-  
   // UI state
   if (authTabLogin && authTabSignup){
     authTabLogin.classList.toggle("active", authMode === "login");
@@ -1378,22 +1317,14 @@ authPrimaryBtn?.addEventListener("click", async () => {
   if (authMode === "signup" && password.length < 6) return authShowError("Heslo musí mít alespoň 6 znaků.");
 
   try {
-if (authMode === "signup") {
-  const cred = await auth.createUserWithEmailAndPassword(email, password);
-
-  // ✅ po vytvoření účtu pošli ověřovací email
-  await cred.user.sendEmailVerification(); // send verification email [1](https://www.geeksforgeeks.org/firebase/how-to-send-a-user-verification-mail-in-web-and-firebase/)[2](https://firebase.blog/posts/2017/02/email-verification-in-firebase-auth)
-
-  toast("Účet vytvořen ✅ Ověř prosím email (mrkni i do spamu).");
-
-  // volitelně: odhlásit hned po registraci, aby se uživatel nejdřív ověřil
-  // await auth.signOut();
-} else {
-  await auth.signInWithEmailAndPassword(email, password);
-  toast("Přihlášení OK ✅");
-}
-closeAuthModal();
-    
+    if (authMode === "signup") {
+      await auth.createUserWithEmailAndPassword(email, password); // signup 
+      toast("Účet vytvořen ✅");
+    } else {
+      await auth.signInWithEmailAndPassword(email, password); // login 
+      toast("Přihlášení OK ✅");
+    }
+    closeAuthModal();
   } catch (e) {
     console.error(e);
     const code = e?.code || "";
@@ -1705,9 +1636,9 @@ async function onSave(){
       charCount.textContent = `${qInput.value.length} / 280`;
     });
 
-    closeBtn?.addEventListener("click", closeModal);
-    cancelBtn?.addEventListener("click", closeModal);
-    saveBtn?.addEventListener("click", onSave);
+    closeBtn.addEventListener("click", closeModal);
+    cancelBtn.addEventListener("click", closeModal);
+    saveBtn.addEventListener("click", onSave);
 
     // QR click opens modal too
     $("#qrcode").addEventListener("click", openModal);
@@ -2046,14 +1977,7 @@ function initParticlesBackground() {
 async function boot(){
   loadAll();
   initParticlesBackground();
-
-  try {
-    await ensureSession();
-  } catch (e) {
-    console.warn("ensureSession failed – rendering QR anyway", e);
-  }
-
-  // ✅ QR se vykreslí VŽDY
+  await ensureSession();  // nastaví session + spustí startRealtimeQuestions() uvnitř
   renderQr();
   render();
   lucide.createIcons();

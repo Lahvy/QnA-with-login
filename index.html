@@ -1204,22 +1204,29 @@ function setAdminUi(){
       : `<i data-lucide="log-in"></i> Přihlásit`;
   }
 
-  if (authLabel){
-    authLabel.textContent = state.user
-      ? (state.isAdmin ? `Admin: ${state.user.email}` : `Přihlášen: ${state.user.email}`)
-      : "";
-  }
+if (authLabel){
+  authLabel.textContent = state.user
+    ? (
+        state.isAdmin
+          ? `Admin: ${state.user.email}`
+          : `Přihlášen (čeká na schválení)`
+      )
+    : "";
+}
 
   lucide.createIcons();
 }
 
 async function checkAdmin(user){
   if (!user) return false;
+
   try {
-    const doc = await db.collection("admins").doc(user.uid).get();
-    return doc.exists;
-  } catch(e){
-    console.error("admin check failed", e);
+    const doc = await db.collection("users").doc(user.uid).get();
+    if (!doc.exists) return false;
+
+    return doc.data()?.role === "admin";
+  } catch (e) {
+    console.error("checkAdmin failed", e);
     return false;
   }
 }
@@ -1331,21 +1338,35 @@ document.addEventListener("keydown", (e) => {
 // Primary action (email + password)
 authPrimaryBtn?.addEventListener("click", async () => {
   authClearError();
+
   const email = (authEmail?.value || "").trim();
   const password = (authPassword?.value || "").trim();
 
   if (!email) return authShowError("Vyplň prosím email.");
   if (!password) return authShowError("Vyplň prosím heslo.");
-  if (authMode === "signup" && password.length < 6) return authShowError("Heslo musí mít alespoň 6 znaků.");
+  if (authMode === "signup" && password.length < 6) {
+    return authShowError("Heslo musí mít alespoň 6 znaků.");
+  }
 
   try {
     if (authMode === "signup") {
-      await auth.createUserWithEmailAndPassword(email, password); // signup 
-      toast("Účet vytvořen ✅");
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+
+      const name = authName?.value.trim() || "";
+
+      await db.collection("users").doc(cred.user.uid).set({
+        name,
+        email: cred.user.email,
+        role: "pending",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      toast("Účet vytvořen ✅ Čeká na schválení adminem.");
     } else {
-      await auth.signInWithEmailAndPassword(email, password); // login 
+      await auth.signInWithEmailAndPassword(email, password);
       toast("Přihlášení OK ✅");
     }
+
     closeAuthModal();
   } catch (e) {
     console.error(e);

@@ -1705,9 +1705,9 @@ async function onSave(){
       charCount.textContent = `${qInput.value.length} / 280`;
     });
 
-    closeBtn.addEventListener("click", closeModal);
-    cancelBtn.addEventListener("click", closeModal);
-    saveBtn.addEventListener("click", onSave);
+    closeBtn?.addEventListener("click", closeModal);
+    cancelBtn?.addEventListener("click", closeModal);
+    saveBtn?.addEventListener("click", onSave);
 
     // QR click opens modal too
     $("#qrcode").addEventListener("click", openModal);

@@ -2046,7 +2046,14 @@ function initParticlesBackground() {
 async function boot(){
   loadAll();
   initParticlesBackground();
-  await ensureSession();  // nastaví session + spustí startRealtimeQuestions() uvnitř
+
+  try {
+    await ensureSession();
+  } catch (e) {
+    console.warn("ensureSession failed – rendering QR anyway", e);
+  }
+
+  // ✅ QR se vykreslí VŽDY
   renderQr();
   render();
   lucide.createIcons();

@@ -1204,15 +1204,7 @@ function setAdminUi(){
       : `<i data-lucide="log-in"></i> Přihlásit`;
   }
 
-if (authLabel){
-  authLabel.textContent = state.user
-    ? (
-        state.isAdmin
-          ? `Admin: ${state.user.email}`
-          : `Přihlášen (čeká na schválení)`
-      )
-    : "";
-  
+
 }if (authLabel){
   if (!state.user) {
     authLabel.textContent = "";

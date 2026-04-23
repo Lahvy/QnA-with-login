@@ -1317,14 +1317,22 @@ authPrimaryBtn?.addEventListener("click", async () => {
   if (authMode === "signup" && password.length < 6) return authShowError("Heslo musí mít alespoň 6 znaků.");
 
   try {
-    if (authMode === "signup") {
-      await auth.createUserWithEmailAndPassword(email, password); // signup 
-      toast("Účet vytvořen ✅");
-    } else {
-      await auth.signInWithEmailAndPassword(email, password); // login 
-      toast("Přihlášení OK ✅");
-    }
-    closeAuthModal();
+if (authMode === "signup") {
+  const cred = await auth.createUserWithEmailAndPassword(email, password);
+
+  // ✅ po vytvoření účtu pošli ověřovací email
+  await cred.user.sendEmailVerification(); // send verification email [1](https://www.geeksforgeeks.org/firebase/how-to-send-a-user-verification-mail-in-web-and-firebase/)[2](https://firebase.blog/posts/2017/02/email-verification-in-firebase-auth)
+
+  toast("Účet vytvořen ✅ Ověř prosím email (mrkni i do spamu).");
+
+  // volitelně: odhlásit hned po registraci, aby se uživatel nejdřív ověřil
+  // await auth.signOut();
+} else {
+  await auth.signInWithEmailAndPassword(email, password);
+  toast("Přihlášení OK ✅");
+}
+closeAuthModal();
+    
   } catch (e) {
     console.error(e);
     const code = e?.code || "";

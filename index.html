@@ -1214,7 +1214,7 @@ resendVerifyBtn?.addEventListener("click", async () => {
     toast("Ověřovací email odeslán ✅");
   } catch (e) {
     console.error(e);
-    toast("Nepodařilo se poslat ověřovací email ❌");
+    toast(`Nepodařilo se poslat ověřovací email (${e?.code || "unknown"}) ❌`);
   }
 });
 

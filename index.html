@@ -1212,6 +1212,16 @@ if (authLabel){
           : `Přihlášen (čeká na schválení)`
       )
     : "";
+  
+}if (authLabel){
+  if (!state.user) {
+    authLabel.textContent = "";
+  } else if (state.isAdmin) {
+    authLabel.textContent = `Admin: ${state.userProfile?.name || state.user.email}`;
+  } else {
+    const name = state.userProfile?.name || state.user.email;
+    authLabel.textContent = `${name} (čeká na schválení)`;
+  }
 }
 
   lucide.createIcons();
@@ -1233,7 +1243,21 @@ async function checkAdmin(user){
 
 auth.onAuthStateChanged(async (user) => {
   state.user = user || null;
-  state.isAdmin = await checkAdmin(user);
+  state.isAdmin = false;
+  state.userProfile = null;
+
+  if (user) {
+    try {
+      const doc = await db.collection("users").doc(user.uid).get();
+      if (doc.exists) {
+        state.userProfile = doc.data();
+        state.isAdmin = state.userProfile?.role === "admin";
+      }
+    } catch (e) {
+      console.error("Failed to load user profile", e);
+    }
+  }
+
   setAdminUi();
 });
 

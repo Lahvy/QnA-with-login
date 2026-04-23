@@ -671,6 +671,21 @@
 
 <span id="authLabel" style="font-size:13px;color:var(--muted);font-weight:650;margin-left:6px;"></span>
 
+  <div id="verifyBanner" style="display:none; margin-left:6px; align-items:center; gap:8px; flex-wrap:wrap;">
+  <span class="pill" style="border-color: rgba(182,0,0,0.25);">
+    <i data-lucide="mail-warning"></i>
+    Email není ověřen
+  </span>
+  <button class="btn" id="resendVerifyBtn" type="button" style="height:38px;">
+    <i data-lucide="send"></i>
+    Poslat znovu
+  </button>
+  <button class="btn" id="refreshVerifyBtn" type="button" style="height:38px;">
+    <i data-lucide="refresh-cw"></i>
+    Zkontrolovat
+  </button>
+</div>
+
   <!-- Settings anchor (tlačítko + dropdown menu) -->
   <div class="menuAnchor" style="display:none">
     <button class="btn iconOnly" id="openSettingsBtn"
@@ -1175,6 +1190,47 @@ async function likeQuestion(id){
 // ADMIN new rules    
 const auth = firebase.auth();
 
+const verifyBanner = document.querySelector("#verifyBanner");
+const resendVerifyBtn = document.querySelector("#resendVerifyBtn");
+const refreshVerifyBtn = document.querySelector("#refreshVerifyBtn");
+
+async function refreshUserVerification(){
+  if (!auth.currentUser) return false;
+  await auth.currentUser.reload(); // načte čerstvý stav emailVerified
+  state.user = auth.currentUser;
+  return !!state.user?.emailVerified;
+}
+
+function setVerifyBannerUi(){
+  const user = state.user;
+  const show = !!user && user.providerData?.some(p => p.providerId === "password") && !user.emailVerified;
+  if (verifyBanner) verifyBanner.style.display = show ? "inline-flex" : "none";
+}
+
+resendVerifyBtn?.addEventListener("click", async () => {
+  try {
+    if (!auth.currentUser) return;
+    await auth.currentUser.sendEmailVerification(); // znovu pošle email [3](https://bing.com/search?q=Firebase+Auth+email+verification+templates+console)[6](https://stackoverflow.com/questions/51334804/change-the-email-template-when-using-firebase-email-link-authentication)
+    toast("Ověřovací email odeslán ✅");
+  } catch (e) {
+    console.error(e);
+    toast("Nepodařilo se poslat ověřovací email ❌");
+  }
+});
+
+refreshVerifyBtn?.addEventListener("click", async () => {
+  try {
+    const verified = await refreshUserVerification();
+    if (verified) toast("Email ověřen ✅");
+    else toast("Email stále není ověřen ❌");
+    setVerifyBannerUi();
+    setAdminUi(); // přepočítá viditelnost ⚙️
+  } catch (e) {
+    console.error(e);
+    toast("Nepodařilo se zkontrolovat ověření ❌");
+  }
+});
+
 state.user = null;
 state.isAdmin = false;
 
@@ -1182,9 +1238,11 @@ function setAdminUi(){
   const settingsAnchor = document.querySelector(".menuAnchor");
   const authBtn = document.querySelector("#authBtn");
   const authLabel = document.querySelector("#authLabel");
+  setVerifyBannerUi();
 
   // ⚙️ jen admin
-  if (settingsAnchor) settingsAnchor.style.display = state.isAdmin ? "" : "none";
+ const verified = !!state.user?.emailVerified;
+if (settingsAnchor) settingsAnchor.style.display = (state.isAdmin && verified) ? "" : "none";
 
   // tlačítko login/logout
   if (authBtn){
@@ -1215,7 +1273,13 @@ async function checkAdmin(user){
 
 auth.onAuthStateChanged(async (user) => {
   state.user = user || null;
-  state.isAdmin = await checkAdmin(user);
+
+  // načti čerstvé emailVerified (hlavně po kliknutí na ověřovací link)
+  if (state.user) {
+    try { await refreshUserVerification(); } catch {}
+  }
+
+  state.isAdmin = await checkAdmin(state.user);
   setAdminUi();
 });
 

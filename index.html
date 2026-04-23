@@ -1195,26 +1195,27 @@ function setAdminUi(){
   const authLabel = document.querySelector("#authLabel");
 
   // ⚙️ jen admin
-  if (settingsAnchor) settingsAnchor.style.display = state.isAdmin ? "" : "none";
+  if (settingsAnchor) {
+    settingsAnchor.style.display = state.isAdmin ? "" : "none";
+  }
 
-  // tlačítko login/logout
+  // tlačítko login / logout
   if (authBtn){
     authBtn.innerHTML = state.user
       ? `<i data-lucide="log-out"></i> Odhlásit`
       : `<i data-lucide="log-in"></i> Přihlásit`;
   }
 
-
-}if (authLabel){
-  if (!state.user) {
-    authLabel.textContent = "";
-  } else if (state.isAdmin) {
-    authLabel.textContent = `Admin: ${state.userProfile?.name || state.user.email}`;
-  } else {
-    const name = state.userProfile?.name || state.user.email;
-    authLabel.textContent = `${name} (čeká na schválení)`;
+  // text se jménem
+  if (authLabel){
+    if (!state.user) {
+      authLabel.textContent = "";
+    } else if (state.isAdmin) {
+      authLabel.textContent = `Admin: ${state.userProfile?.name || "Admin"}`;
+    } else {
+      authLabel.textContent = `${state.userProfile?.name || "Uživatel"} (čeká na schválení)`;
+    }
   }
-}
 
   lucide.createIcons();
 }

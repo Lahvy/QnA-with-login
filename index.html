@@ -203,6 +203,18 @@
       box-shadow: 0 10px 22px rgba(120,120,120,0.20);
     }
 
+    /* Danger button (Neschválit) */
+.btn.danger{
+  background: rgba(182,0,0,0.10);
+  border-color: rgba(182,0,0,0.28);
+  color: #b60000;
+}
+.btn.danger:hover{
+  background: rgba(182,0,0,0.16);
+  border-color: rgba(182,0,0,0.36);
+  box-shadow: 0 10px 22px rgba(182,0,0,0.10);
+}
+
 /* ===== Settings dropdown menu ===== */
 .menuAnchor{
   position: relative;
@@ -1258,22 +1270,37 @@ async function loadPendingUsers(){
     }
 
     approveList.innerHTML = snap.docs.map(doc => {
-      const u = doc.data();
+      const u = doc.data() || {};
       return `
         <div class="card" style="padding:12px; display:flex; align-items:center; gap:12px;">
           <div style="flex:1">
             <strong>${u.name || "—"}</strong><br/>
-            <span class="mutedSmall">${u.email}</span>
+            <span class="mutedSmall">${u.email || ""}</span>
           </div>
-          <button class="btn primary" data-approve="${doc.id}">
-            Schválit
-          </button>
+
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn primary" data-approve="${doc.id}" type="button">
+              <i data-lucide="check-circle-2"></i>
+              Schválit
+            </button>
+
+            <button class="btn danger" data-reject="${doc.id}" type="button">
+              <i data-lucide="x-circle"></i>
+              Neschválit
+            </button>
+          </div>
         </div>
       `;
     }).join("");
 
+    // bind approve
     approveList.querySelectorAll("[data-approve]").forEach(btn => {
       btn.addEventListener("click", () => approveUser(btn.dataset.approve));
+    });
+
+    // bind reject
+    approveList.querySelectorAll("[data-reject]").forEach(btn => {
+      btn.addEventListener("click", () => rejectUser(btn.dataset.reject));
     });
 
     lucide.createIcons();
@@ -1284,6 +1311,7 @@ async function loadPendingUsers(){
       `<div class="mutedSmall">Chyba při načítání ❌</div>`;
   }
 }
+
 
 // schválení usera
 async function approveUser(uid){
@@ -1296,6 +1324,25 @@ async function approveUser(uid){
   } catch (e){
     console.error("approveUser failed", e);
     toast("Schválení se nepovedlo ❌");
+  }
+}
+
+    // neschválení usera
+async function rejectUser(uid){
+  try {
+    const ok = window.confirm("Opravdu chceš tohoto uživatele neschválit?");
+    if (!ok) return;
+
+    await db.collection("users").doc(uid).update({
+      role: "rejected",
+      rejectedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    toast("Uživatel neschválen ⛔");
+    loadPendingUsers();
+  } catch (e){
+    console.error("rejectUser failed", e);
+    toast("Neschválení se nepovedlo ❌");
   }
 }
     
